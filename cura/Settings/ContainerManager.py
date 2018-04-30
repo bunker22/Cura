@@ -1,7 +1,7 @@
 # Copyright (c) 2018 Ultimaker B.V.
 # Cura is released under the terms of the LGPLv3 or higher.
 
-import os.path
+import os
 import urllib.parse
 import uuid
 from typing import Dict, Union
@@ -20,6 +20,7 @@ from UM.Application import Application
 from UM.Settings.ContainerStack import ContainerStack
 from UM.Settings.DefinitionContainer import DefinitionContainer
 from UM.Settings.InstanceContainer import InstanceContainer
+from UM.Singleton import Singleton
 
 from UM.MimeTypeDatabase import MimeTypeNotFoundError
 from UM.Settings.ContainerFormatError import ContainerFormatError
@@ -35,7 +36,8 @@ catalog = i18nCatalog("cura")
 #   This is primarily intended as a class to be able to perform certain actions
 #   from within QML. We want to be able to trigger things like removing a container
 #   when a certain action happens. This can be done through this class.
-class ContainerManager(QObject):
+class ContainerManager(Singleton, QObject):
+
     def __init__(self, parent = None):
         super().__init__(parent)
 
@@ -380,16 +382,6 @@ class ContainerManager(QObject):
         container = material_group.root_material_node.getContainer()
         if container is not None:
             container.setMetaDataEntry("GUID", new_guid)
-
-    ##  Get the singleton instance for this class.
-    @classmethod
-    def getInstance(cls) -> "ContainerManager":
-        # Note: Explicit use of class name to prevent issues with inheritance.
-        if ContainerManager.__instance is None:
-            ContainerManager.__instance = cls()
-        return ContainerManager.__instance
-
-    __instance = None   # type: "ContainerManager"
 
     # Factory function, used by QML
     @staticmethod

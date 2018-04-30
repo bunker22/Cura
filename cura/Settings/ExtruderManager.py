@@ -15,6 +15,8 @@ from UM.Settings.SettingFunction import SettingFunction
 from UM.Settings.SettingInstance import SettingInstance
 from UM.Settings.ContainerStack import ContainerStack
 from UM.Settings.PropertyEvaluationContext import PropertyEvaluationContext
+from UM.Singleton import Singleton
+
 from typing import Optional, List, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
@@ -25,7 +27,7 @@ if TYPE_CHECKING:
 ##  Manages all existing extruder stacks.
 #
 #   This keeps a list of extruder stacks for each machine.
-class ExtruderManager(QObject):
+class ExtruderManager(Singleton, QObject):
 
     ##  Registers listeners and such to listen to changes to the extruders.
     def __init__(self, parent = None):
@@ -91,28 +93,6 @@ class ExtruderManager(QObject):
             extruder = self._extruder_trains[Application.getInstance().getGlobalContainerStack().getId()][position]
             if extruder.getId() == extruder_stack_id:
                 return extruder.qualityChanges.getId()
-
-    ##  The instance of the singleton pattern.
-    #
-    #   It's None if the extruder manager hasn't been created yet.
-    __instance = None
-
-    @staticmethod
-    def createExtruderManager():
-        return ExtruderManager().getInstance()
-
-    ##  Gets an instance of the extruder manager, or creates one if no instance
-    #   exists yet.
-    #
-    #   This is an implementation of singleton. If an extruder manager already
-    #   exists, it is re-used.
-    #
-    #   \return The extruder manager.
-    @classmethod
-    def getInstance(cls) -> "ExtruderManager":
-        if not cls.__instance:
-            cls.__instance = ExtruderManager()
-        return cls.__instance
 
     ##  Changes the active extruder by index.
     #

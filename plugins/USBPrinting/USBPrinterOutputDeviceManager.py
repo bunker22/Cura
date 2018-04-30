@@ -1,10 +1,17 @@
-# Copyright (c) 2017 Ultimaker B.V.
+# Copyright (c) 2018 Ultimaker B.V.
 # Cura is released under the terms of the LGPLv3 or higher.
 
-from UM.Signal import Signal, signalemitter
-from UM.Application import Application
-from UM.Resources import Resources
+import threading
+import platform
+import time
+import serial.tools.list_ports
+
+from PyQt5.QtCore import QObject, pyqtSlot, pyqtProperty, pyqtSignal
+
 from UM.Logger import Logger
+from UM.Resources import Resources
+from UM.Signal import Signal, signalemitter
+from UM.Singleton import Singleton
 from UM.OutputDevice.OutputDevicePlugin import OutputDevicePlugin
 from UM.i18n import i18nCatalog
 
@@ -12,24 +19,20 @@ from cura.PrinterOutputDevice import ConnectionState
 from cura.CuraApplication import CuraApplication
 
 from . import USBPrinterOutputDevice
-from PyQt5.QtCore import QObject, pyqtSlot, pyqtProperty, pyqtSignal
-
-import threading
-import platform
-import time
-import serial.tools.list_ports
 
 i18n_catalog = i18nCatalog("cura")
 
 
 ##  Manager class that ensures that an USBPrinterOutput device is created for every connected USB printer.
 @signalemitter
-class USBPrinterOutputDeviceManager(QObject, OutputDevicePlugin):
+class USBPrinterOutputDeviceManager(Singleton, QObject, OutputDevicePlugin):
     addUSBOutputDeviceSignal = Signal()
     progressChanged = pyqtSignal()
 
-    def __init__(self, parent = None):
+    def __init__(self, application, parent = None):
         super().__init__(parent = parent)
+        self._application = application
+
         self._serial_port_list = []
         self._usb_output_devices = {}
         self._usb_output_devices_model = None
@@ -38,11 +41,11 @@ class USBPrinterOutputDeviceManager(QObject, OutputDevicePlugin):
 
         self._check_updates = True
 
-        Application.getInstance().applicationShuttingDown.connect(self.stop)
+        self._application.applicationShuttingDown.connect(self.stop)
         # Because the model needs to be created in the same thread as the QMLEngine, we use a signal.
         self.addUSBOutputDeviceSignal.connect(self.addOutputDevice)
 
-        Application.getInstance().globalContainerStackChanged.connect(self.updateUSBPrinterOutputDevices)
+        self._application.globalContainerStackChanged.connect(self.updateUSBPrinterOutputDevices)
 
     # The method updates/reset the USB settings for all connected USB devices
     def updateUSBPrinterOutputDevices(self):
@@ -69,7 +72,7 @@ class USBPrinterOutputDeviceManager(QObject, OutputDevicePlugin):
 
     def _updateThread(self):
         while self._check_updates:
-            container_stack = Application.getInstance().getGlobalContainerStack()
+            container_stack = self._application.getGlobalContainerStack()
             if container_stack is None:
                 time.sleep(5)
                 continue
@@ -80,19 +83,10 @@ class USBPrinterOutputDeviceManager(QObject, OutputDevicePlugin):
             self._addRemovePorts(port_list)
             time.sleep(5)
 
-    ##  Return the singleton instance of the USBPrinterManager
-    @classmethod
-    def getInstance(cls, engine = None, script_engine = None):
-        # Note: Explicit use of class name to prevent issues with inheritance.
-        if USBPrinterOutputDeviceManager._instance is None:
-            USBPrinterOutputDeviceManager._instance = cls()
-
-        return USBPrinterOutputDeviceManager._instance
-
     @pyqtSlot(result = str)
     def getDefaultFirmwareName(self):
         # Check if there is a valid global container stack
-        global_container_stack = Application.getInstance().getGlobalContainerStack()
+        global_container_stack = self._application.getGlobalContainerStack()
         if not global_container_stack:
             Logger.log("e", "There is no global container stack. Can not update firmware.")
             self._firmware_view.close()
@@ -180,5 +174,3 @@ class USBPrinterOutputDeviceManager(QObject, OutputDevicePlugin):
             base_list += [port[0]]
 
         return list(base_list)
-
-    _instance = None    # type: "USBPrinterOutputDeviceManager"
